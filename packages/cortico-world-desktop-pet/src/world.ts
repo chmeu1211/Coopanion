@@ -47,6 +47,7 @@ import { Packer, Segmenter, rmsDb, type SegmentConfig, type SegmentSink, type Ut
 import { comboLabel, hotkeyBadge, hotkeyLabel, parseHotkey, splitTaps, watchHotkey, type KeyWatcher } from './asr/hotkey.ts';
 import { createGestureClassifier, type GestureClassifier, type GestureEvent, type RemoteEdge } from './vokie/gesture.ts';
 import { VokieLogWatch, vokieLogFile } from './vokie/log-watch.ts';
+import { VokieRecordsWatch, type VokieRecord } from './vokie/records.ts';
 import { VokieRemote } from './vokie/remote.ts';
 import { readVokieToggle, ShortcutPresser, vokieSettingsFile, type Shortcut } from './vokie/vokie-input.ts';
 import { joinSpeech, looksHallucinated } from './asr/result.ts';
@@ -236,6 +237,8 @@ export interface DesktopPetWorldOptions {
   watchHotkey?: typeof watchHotkey;
   /** Reads the remote's button edges; tests pass a scripted source. */
   openRemote?: (onEdge: (edge: RemoteEdge) => void) => RemoteSource;
+  /** Reads Vokie's finished 旁听 sessions; tests pass a scripted source. */
+  openRecords?: (onRecord: (record: VokieRecord) => void) => RemoteSource;
   /** Starts the system recognizer's helper; tests pass a fake. */
   spawnSystemRecognizer?: typeof spawn;
   /** Directories whose subdirectories are installed figure packs (src/packs.ts). */
@@ -391,6 +394,9 @@ export class DesktopPetWorld implements World {
   private gestures: GestureClassifier | null = null;
   private remoteTimer: NodeJS.Timeout | null = null;
   private remoteKey = '';
+  /** Vokie's finished 旁听 sessions, as the pet's second way in (src/vokie/records.ts). */
+  private records: RemoteSource | null = null;
+  private recordsKey = '';
   /** Vokie's own dictation shortcut, read from its settings the first time a hold needs it. */
   private toggleShortcut: Shortcut | null = null;
   private presser: ShortcutPresser | null = null;
@@ -660,6 +666,7 @@ export class DesktopPetWorld implements World {
     if (this.cfg.asr.enabled) void this.startVoiceBackend();
     await this.syncHotkey();
     this.syncRemote();
+    this.syncRecordChannel();
     this.prefsKey = this.prefsSignature();
     this.prefsTimer = setInterval(() => this.syncPrefs(), PREFS_SYNC_MS);
   }
@@ -684,6 +691,8 @@ export class DesktopPetWorld implements World {
     this.gestures = null;
     if (this.remoteTimer) clearInterval(this.remoteTimer);
     this.remoteTimer = null;
+    void this.records?.stop();
+    this.records = null;
     if (this.micReleaseTimer) clearTimeout(this.micReleaseTimer);
     this.micReleaseTimer = null;
     for (const c of this.confirms.values()) { clearTimeout(c.timer); c.resolve('unavailable'); }
@@ -943,6 +952,7 @@ export class DesktopPetWorld implements World {
     else if (this.cfg.asr.enabled && (this.runningEngine === 'funasr' || this.runningEngine === 'whisper') && this.sherpa(this.runningEngine)?.configChanged) void this.startVoiceBackend();
     void this.syncHotkey();
     this.syncRemote();
+    this.syncRecordChannel();
     // the person changed what a quiet holds back: theirs wins
     if (this.quiet && (this.cfg.sound !== this.quiet.base.sound || this.cfg.roam !== this.quiet.base.roam)) this.endQuiet();
     this.server.syncOverlay();
@@ -1433,6 +1443,41 @@ export class DesktopPetWorld implements World {
   }
 
   /* ---------- Vokie's remote control ---------- */
+
+  /**
+   * Starts, restarts or stops reading Vokie's history to match the configuration. A finished 旁听
+   * session is the one the person started with the remote: Vokie recognizes it and keeps it, and Coo
+   * takes the text from there, so no microphone opens here and no key is pressed for Vokie.
+   */
+  private syncRecordChannel(): void {
+    const records = this.cfg.vokie.records;
+    const key = records.enabled ? `${records.type}:${records.pollMs}` : '';
+    if (key === this.recordsKey) return;
+    this.recordsKey = key;
+    void this.records?.stop();
+    this.records = null;
+    if (!key) return;
+    const onRecord = (record: VokieRecord): void => this.onVokieRecord(record);
+    this.records = this.opts.openRecords
+      ? this.opts.openRecords(onRecord)
+      : new VokieRecordsWatch({
+        port: () => this.cfg.asr.vokiePort,
+        type: () => records.type,
+        pollMs: records.pollMs,
+        onRecord,
+        log: this.log ?? undefined,
+      });
+    void this.records.start();
+    this.log?.info(`Vokie 的记录通道已开始:${records.type} 的记录交给 Coo`);
+  }
+
+  /** One finished Vokie session becomes one speech event, the same shape the microphone produces. */
+  private onVokieRecord(record: VokieRecord): void {
+    this.counts.delivered++;
+    this.server.sendPet({ t: 'listen', phase: 'heard', text: record.text });
+    void this.push('desktop-pet.speech', 'desktop-pet.voice', this.t.heard(this.userName, record.text), 'flush', { meta: { text: record.text } });
+    this.log?.info(`Vokie 记录 ${record.id} 交给了 Coo:${record.text.length} 字`);
+  }
 
   /**
    * Starts, restarts or stops the remote watcher to match the configuration. The remote's voice

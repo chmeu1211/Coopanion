@@ -13,6 +13,7 @@ import { DESKTOP_PET_DEFAULTS } from '../src/config.ts';
 import { DesktopPetWorld } from '../src/world.ts';
 import type { ModelSpec } from '../src/runtime/store.ts';
 import type { RemoteEdge } from '../src/vokie/gesture.ts';
+import type { VokieRecord } from '../src/vokie/records.ts';
 import type { SherpaModule } from '../src/asr/sherpa.ts';
 import { FakeHost } from './helpers/fake-host.ts';
 import { FakePage } from './helpers/page.ts';
@@ -76,10 +77,13 @@ async function setup(heard = '帮我看看这个') {
   const dir = mkdtempSync(join(tmpdir(), 'pet-remote-'));
   const whisperModel = placeModels(join(dir, 'm'));
   const remote = { started: 0, stopped: 0, start() { remote.started++; }, stop() { remote.stopped++; } };
+  const records = { started: 0, stopped: 0, start() { records.started++; }, stop() { records.stopped++; } };
   let feed: ((edge: RemoteEdge) => void) | null = null;
+  let feedRecord: ((record: VokieRecord) => void) | null = null;
   const world = new DesktopPetWorld({
     cfg, timezone: 'Asia/Shanghai', persist: () => {}, runtimesRoot: () => join(dir, 'rt'), modelsDir: () => join(dir, 'm'),
     openRemote: (onEdge) => { feed = onEdge; return remote; },
+    openRecords: (onRecord) => { feedRecord = onRecord; return records; },
     loadSherpa: () => fakeFunAsr(heard), funasrModel: modelSpec(), whisperModel, language: () => 'zh',
   });
   const host = new FakeHost();
@@ -90,7 +94,8 @@ async function setup(heard = '帮我看看这个') {
   cleanup.push(() => page.close());
   const down = () => void feed?.({ ...VOICE, down: true, ts: Date.now() });
   const up = () => void feed?.({ ...VOICE, down: false, ts: Date.now() });
-  return { world, host, page, remote, down, up };
+  const emitRecord = (text: string) => void feedRecord?.({ id: 7, type: 'toggle', text, ts: Date.now() });
+  return { world, host, page, remote, records, down, up, emitRecord };
 }
 
 describe('Vokie remote', () => {
@@ -127,5 +132,23 @@ describe('Vokie remote', () => {
     await expect.poll(() => remote.stopped).toBe(1);
     down();
     expect(world.voiceState().counts).toMatchObject({ utterances: 0 });
+  });
+});
+
+describe('Vokie 旁听 channel', () => {
+  it('turns one finished session from Vokie into one speech event', async () => {
+    const { host, page, records, emitRecord } = await setup();
+    expect(records.started).toBe(1);
+    emitRecord('帮我把窗口挪到右边');
+    await expect.poll(() => host.events.length, { timeout: 5000 }).toBe(1);
+    expect(host.events[0]).toMatchObject({ type: 'desktop-pet.speech', senderKey: 'desktop-pet.voice', text: '[voice] 伙伴:帮我把窗口挪到右边' });
+    expect(host.pushOpts[0]).toEqual({ trigger: 'flush' });
+    expect((await page.next((m) => m.t === 'listen' && m.phase === 'heard')).text).toBe('帮我把窗口挪到右边');
+  });
+
+  it('stops reading Vokie when the World stops', async () => {
+    const { world, records } = await setup();
+    await world.stop();
+    await expect.poll(() => records.stopped).toBe(1);
   });
 });

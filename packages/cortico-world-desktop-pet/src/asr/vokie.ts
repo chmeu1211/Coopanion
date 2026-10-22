@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Vokie's speech recognition: the service Vokie runs on this computer
  * (`POST http://127.0.0.1:<port>/v1/asr/offline2pass`), which takes the path of a whole 16 kHz
  * mono WAV and answers with its text. Nothing runs in this process and nothing is downloaded;
@@ -46,7 +46,7 @@ export interface VokieRecognizerOptions {
 }
 
 /** Vokie's settings, as its `externalAsrApi` records them. */
-interface VokieService {
+export interface VokieService {
   port: number;
   /** Whether Vokie's settings have its external ASR API switched on. */
   enabled: boolean;
@@ -59,13 +59,13 @@ const DEFAULT_PORT = 27_678;
 const HEALTH_TIMEOUT_MS = 5_000;
 
 /** Where Vokie keeps its settings on this platform, when it keeps them where this reads. */
-function vokieSettingsFile(): string | null {
+export function vokieSettingsFile(): string | null {
   const appData = process.env.APPDATA;
   return process.platform === 'win32' && appData ? join(appData, 'vokie', 'app-settings.json') : null;
 }
 
 /** `externalAsrApi` of a Vokie settings file; its defaults for a file that is missing or unreadable. */
-function readVokieService(file: string | null): VokieService {
+export function readVokieService(file: string | null): VokieService {
   const fallback: VokieService = { port: DEFAULT_PORT, enabled: true };
   if (!file) return fallback;
   let settings: unknown;
@@ -153,7 +153,7 @@ export class VokieRecognizer {
     const call = await this.call(`http://127.0.0.1:${service.port}`, '/v1/asr/health', {}, HEALTH_TIMEOUT_MS);
     if (call.ok && call.status < 400 && this.healthy(call.body)) {
       this.phase = 'running';
-      this.opts.log.info(`Vokie 识别服务已就绪:http://127.0.0.1:${service.port}`);
+      this.opts.log.info(`Vokie 璇嗗埆鏈嶅姟宸插氨缁?http://127.0.0.1:${service.port}`);
       return;
     }
     // a stopped one stays stopped: `stop()` already said so
@@ -242,6 +242,6 @@ export class VokieRecognizer {
   /** A temporary WAV's use is over; on Windows a scanner may still hold it for a moment. */
   private drop(file: string): void {
     this.temps.delete(file);
-    try { rmSync(file, { force: true }); } catch (err) { this.opts.log.debug(`临时 WAV 删不掉:${(err as Error).message}`); }
+    try { rmSync(file, { force: true }); } catch (err) { this.opts.log.debug(`涓存椂 WAV 鍒犱笉鎺?${(err as Error).message}`); }
   }
 }

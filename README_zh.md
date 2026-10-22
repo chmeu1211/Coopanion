@@ -191,13 +191,12 @@ irm https://raw.githubusercontent.com/Pal-AI-Lab/Coopanion/main/installer/instal
 
 ### 用 Vokie 的遥控器
 
-开着 Vokie 的谷歌遥控器支持时，**按住遥控器的语音键说话是给 Coo 的**，轻按一下仍然是 Vokie 自己的听写。这需要三件事：
+Vokie 的谷歌遥控器语音键按下去是**旁听**（toggle）模式：它录音、转写、留在历史里，不往任何窗口粘贴。Coopanion 读的就是这份历史：遥控器按一下开始、说完再按一下结束，这段转写就作为一句话交给 Coo，麦克风不用抢、也不用往 Vokie 里注入按键。
 
-1. Vokie 里打开谷歌遥控器（`googleTvRemoteEnabled`），并把语音键设成「开关」模式（`googleTvRemotePttMode: "toggle"`）。按住时，Coopanion 会先按一次 Vokie 的开关快捷键结束 Vokie 自己那次听写，再把同一段话交给 Coo。
-2. Coopanion 的语音输入开着，识别引擎用 `vokie` 或其他引擎都行。
-3. 配置里打开遥控器监听：`worlds.desktop-pet.vokie.remote.enabled` 设为 `true`（默认关闭）。`holdMs` 是长按的判定长度，默认 500 毫秒；`stopDictation` 默认 `true`，就是上面第 1 条的结束 Vokie 听写。
-
-按键从哪里来：Vokie 自己读走了遥控器的 HID 报告，别的程序拿不到，所以 Coopanion 读 Vokie 的日志（`%APPDATA%\vokie\logs\app.log`）里它记下的每一次按键，`vokie.remote.source` 默认就是 `log`。日志被 Vokie 轮转、或路径不同时，遥控器不会响应，日志里会有一行说明。
+- 开关是 `worlds.desktop-pet.vokie.records.enabled`（默认开）；`type` 默认 `toggle`（旁听），可以改成 `ptt`（听写）或 `any`。
+- 普通输入不受影响：遥控器的按住说话、键盘上的说话键照旧由 Vokie 自己转写并粘贴，Coopanion 不看 `ptt` 记录。
+- 旁听录到哪个麦克风由 Vokie 决定。录出来是空的或只有「嗯」，就在 Vokie 设置里关掉「使用遥控器麦克风」，让它用电脑的麦克风。
+- 旁听的转写带 `00:00:01`、`SPEAKER_00:` 这样的分段行，Coopanion 去掉它们再交给 Coo；只剩「嗯」这种没内容的会丢掉。
 
 ### 和 Coo 互动
 

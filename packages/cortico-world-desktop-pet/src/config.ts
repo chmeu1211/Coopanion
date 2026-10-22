@@ -242,11 +242,19 @@ export interface DesktopPetConfigSection extends WorldSection {
     };
   };
   /**
-   * Vokie's remote control: holding its voice key talks to Coo, a tap stays Vokie's own dictation.
-   * Vokie drives the remote itself, so its Google TV remote has to be on, with the voice key set
-   * to toggle (`googleTvRemotePttMode`), and voice input has to be on here.
+   * Vokie's remote control. `records` is the channel that fits Vokie's own design: the Google TV
+   * remote starts a 旁听 (toggle) session, Vokie transcribes and keeps it, and this World reads the
+   * finished transcript out of Vokie's history. `remote` is the earlier hold-to-talk attempt, which
+   * needs Vokie's voice key in toggle mode and presses Vokie's own shortcut to end its session.
    */
   vokie: {
+    records: {
+      enabled: boolean;
+      /** `toggle`: the remote's 旁听; `ptt`: the 听写 Vokie pastes itself; `any`: either. */
+      type: 'toggle' | 'ptt' | 'any';
+      /** How often Vokie's history is read, in milliseconds. */
+      pollMs: number;
+    };
     remote: {
       enabled: boolean;
       /** `log` reads the edges out of Vokie's log, the only place a second program sees them; `hid` reads the remote's HID reports directly (Windows only, unverified on shipping hardware). */
@@ -304,6 +312,7 @@ export const DESKTOP_PET_DEFAULTS: DesktopPetConfigSection = {
     mic: { mode: 'hold', hotkey: DEFAULT_HOTKEY, deviceId: '', openOnPress: false },
   },
   vokie: {
+    records: { enabled: true, type: 'toggle', pollMs: 900 },
     remote: { enabled: false, source: 'log', holdMs: 500, stopDictation: true },
   },
 };

@@ -171,20 +171,25 @@ overlay 页按画出的时刻显示各帧，帧与帧隔开的时间和桌宠页
 服务没在运行时 `state()` 的 `phase` 是 `error`、`detail` 说明原因,「语音输入」页照原样显示。电路进不来就不出声,没有回落到
 FunASR 或 Whisper 的行为。
 
-## Vokie 遥控器
+## Vokie 通道:旁听记录
 
-`vokie.remote.enabled` 开着时,遥控器语音键的按下和松开被当成说话键:`press` 打开麦克风并开始这次倾听,
-越过 `holdMs`(默认 500 毫秒)算长按,交给 Coo;`holdMs` 之前松开算轻按,这次倾听取消、什么都不投递,那一下仍归 Vokie 自己的听写。
+Vokie 的谷歌遥控器语音键按下是**旁听**(toggle)模式:录音、转写、留在历史里,不粘贴到任何窗口。
+`vokie.records.enabled`(默认开)时,World 轮询 Vokie 的只读接口 `GET /v1/data/records`,
+把**这个频道启动之后**才完成、类型匹配(`vokie.records.type`,默认 `toggle`)且不是空话的记录取出来:
 
-按键来源是 `vokie.remote.source`:
+- 转写里的分段行(`00:00:01`、`SPEAKER_00:`、`UNKNOWN:`)去掉,中文分段直接拼接、西文用空格;
+  只剩「嗯」这类填充词的记录丢掉(`isNoise`)。
+- 取到的文字走和麦克风同一条路:`listen` 的 `heard` 气泡 + `desktop-pet.speech`(`[voice]`),
+  trigger `flush`,于是对话页、气泡和遥测那里,它和亲口说的话没有分别。
+- 不打开麦克风、不注入按键、不改 Vokie 的设置;`ptt`(听写)记录默认不看,那是 Vokie 自己会粘贴的普通输入。
 
-| 值 | 来源 |
-|---|---|
-| `log`(默认) | 读 Vokie 的日志 `%APPDATA%\vokie\logs\app.log` 里 `google-tv-remote-helper { type: 'button' … }` 那些行(`src/vokie/log-watch.ts`)。Vokie 自己读走了遥控器的 HID 报告,别的程序拿不到,日志是唯一能看到这些边沿的地方 |
-| `hid` | 直接读遥控器的 HID 报告(`src/vokie/remote.ts` 起 `remote-input.ps1`,注册 Raw Input 并按报告解 usage)。Windows 专用;本机实测没收到过报告,所以不是默认 |
+端口沿用 `asr.vokiePort`,0 表示读 Vokie 设置里的 `externalAsrApi.port`。实现见 `src/vokie/records.ts`。
 
-Vokie 用「开关」模式时,长按会先在 `holdMs` 处按一次 Vokie 的开关快捷键(`stopDictation`)结束它自己那次听写,
-再让 Coo 拿同一段话;快捷键从 Vokie 设置里的 `toggleConfig` 读,读不到时只写一行日志、不注入按键。
+## 附:遥控器按键通道(不用)
+
+`vokie.remote.enabled`(默认关)是早先的长按方案:读 Vokie 日志里的按键边沿(`vokie.remote.source`:
+`log` 默认,`hid` 是直接读 HID 报告的另一条路,未在真机验证),长按超过 `holdMs` 时把这次倾听交给 Coo,
+并可用 `stopDictation` 按一次 Vokie 的开关快捷键结束它自己那次听写。保留代码与测试备查,推荐用上面的旁听记录通道。
 
 `sherpa-onnx-node` 是本包的依赖,随包安装(Windows 约 24 MB,macOS 约 35 MB,Linux x64 约 33 MB),不在运行时下载;
 Windows x64、macOS arm64 / x64、Linux x64 / arm64 都有预编译包,Linux 上要 glibc 2.32 与 GCC 11 的 libstdc++ 以上(Ubuntu 22.04、Debian 12 起)。
