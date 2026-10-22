@@ -189,6 +189,18 @@ Talk key, microphone and listening mode (hold to talk / press to toggle / always
 
 Speech is recognized on your machine and audio is never uploaded: by **FunASR** (the SenseVoiceSmall model, about 230 MB) when the app language is Chinese, English, Japanese or Korean, and by **Whisper** (the small model, about 360 MB; the text appears once a sentence ends) for French, German, Spanish, Portuguese, Italian and Russian. The model is downloaded once, from the guide or the Voice input page. On Windows you can use the built-in recognizer instead, which needs no download but is less accurate.
 
+**Vokie** can recognize speech instead: install and run Vokie, then set the recognizer to `vokie` on the Voice input page. Talk key, listening bubble, cancel and timeout stay as they are; each sentence goes to Vokie's local recognition service (`POST /v1/asr/offline2pass`, about a second per sentence). Vokie must have its external ASR API turned on, on port 27678 by default; when the port was changed, set `worlds.desktop-pet.asr.vokiePort`. The Voice input page says why when Vokie is not running.
+
+### With Vokie's remote control
+
+With Vokie's Google TV remote support on, **holding the remote's voice key talks to Coo**, and a quick tap stays Vokie's own dictation. This needs three things:
+
+1. The Google TV remote turned on in Vokie (`googleTvRemoteEnabled`), with its voice key in toggle mode (`googleTvRemotePttMode: "toggle"`). On a hold, Coopanion presses Vokie's toggle shortcut once to end the dictation Vokie started on the same press, then gives the same speech to Coo.
+2. Voice input turned on in Coopanion; any recognizer works, `vokie` included.
+3. The remote watcher turned on in the config: `worlds.desktop-pet.vokie.remote.enabled` set to `true` (off by default). `holdMs` is the press length that counts as a hold, 500 ms by default; `stopDictation` is the toggle press from item 1, on by default.
+
+Vokie reads the remote's HID reports itself, so another program cannot see them; Coopanion therefore reads the button edges Vokie writes to its log (`%APPDATA%\vokie\logs\app.log`), which is what `vokie.remote.source` asks for with its default `log`. When the log is rotated away or lives elsewhere, the remote does nothing and a log line says so.
+
 ### Playing with Coo
 
 - **Click** to poke it, **move back and forth over its head** to pat it, **press and drag** to pick it up; let go mid-swing to throw it. By default a poke makes Coo respond, and pats and pick-ups are passed on the next time it wakes. **Response mode** in Habits changes this: Quiet keeps every touch until you next talk to Coo, Eager responds to every touch, Custom… picks the touches that get a response right away.

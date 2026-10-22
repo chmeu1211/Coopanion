@@ -187,6 +187,18 @@ irm https://raw.githubusercontent.com/Pal-AI-Lab/Coopanion/main/installer/instal
 
 语音在本机识别，录音不上传：应用语言是中、英、日、韩文时用 **FunASR**（SenseVoiceSmall 模型，约 230 MB），法、德、西、葡、意、俄语时用 **Whisper**（small 模型，约 360 MB，一句说完才出字）。模型在引导或「语音输入」页下载一次即可。Windows 上也可以用系统自带的识别，不用下载，准确率低一些。
 
+识别引擎也可以选 **Vokie**：装好并运行 Vokie，在「语音输入」页把识别引擎改成 `vokie`，说话键、倾听气泡、取消和超时都照旧，句子交给 Vokie 的本机识别服务（`POST /v1/asr/offline2pass`，整句识别约一秒）。Vokie 要在设置里打开「外部 ASR API」，默认端口 27678；端口改过时，在配置里写 `worlds.desktop-pet.asr.vokiePort`。Vokie 没运行时「语音输入」页会写明原因。
+
+### 用 Vokie 的遥控器
+
+开着 Vokie 的谷歌遥控器支持时，**按住遥控器的语音键说话是给 Coo 的**，轻按一下仍然是 Vokie 自己的听写。这需要三件事：
+
+1. Vokie 里打开谷歌遥控器（`googleTvRemoteEnabled`），并把语音键设成「开关」模式（`googleTvRemotePttMode: "toggle"`）。按住时，Coopanion 会先按一次 Vokie 的开关快捷键结束 Vokie 自己那次听写，再把同一段话交给 Coo。
+2. Coopanion 的语音输入开着，识别引擎用 `vokie` 或其他引擎都行。
+3. 配置里打开遥控器监听：`worlds.desktop-pet.vokie.remote.enabled` 设为 `true`（默认关闭）。`holdMs` 是长按的判定长度，默认 500 毫秒；`stopDictation` 默认 `true`，就是上面第 1 条的结束 Vokie 听写。
+
+按键从哪里来：Vokie 自己读走了遥控器的 HID 报告，别的程序拿不到，所以 Coopanion 读 Vokie 的日志（`%APPDATA%\vokie\logs\app.log`）里它记下的每一次按键，`vokie.remote.source` 默认就是 `log`。日志被 Vokie 轮转、或路径不同时，遥控器不会响应，日志里会有一行说明。
+
 ### 和 Coo 互动
 
 - **点一下**是戳它，**在头上来回划**是摸头，**按住拖动**是拎起来，松手可以甩出去。默认戳它会让它回应，摸头和拎起只在下次它说话时一并告诉它。在「习惯」页的「回应模式」里可以改：安静是互动都先记着、和它说话时一起回应，积极是所有互动都回应，自定义…可以勾选哪些互动让它马上回应。

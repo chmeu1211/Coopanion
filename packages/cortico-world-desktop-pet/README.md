@@ -163,8 +163,28 @@ overlay 页按画出的时刻显示各帧，帧与帧隔开的时间和桌宠页
 | `funasr` | FunASR 的 SenseVoiceSmall(int8),经 sherpa-onnx 的 Node 插件在 World 进程里识别 |
 | `whisper` | OpenAI 的 Whisper small(int8),同样经 sherpa-onnx 在 World 进程里识别 |
 | `system` | Windows 自带的语音识别(SAPI 听写,System.Speech),不用下载,准确度低一些;其他系统上按空处理 |
+| `vokie` | Vokie 的本机识别服务(`/v1/asr/offline2pass`),一句一个临时 WAV 送过去取回文字,一句说完才出字;不随语言默认选中,要显式指定 |
 
 旧版本写下的 `auto` 按空处理。
+
+`vokie` 需要 Vokie 在运行并打开「外部 ASR API」,端口从 Vokie 的设置里读,也可以用 `asr.vokiePort` 指定;
+服务没在运行时 `state()` 的 `phase` 是 `error`、`detail` 说明原因,「语音输入」页照原样显示。电路进不来就不出声,没有回落到
+FunASR 或 Whisper 的行为。
+
+## Vokie 遥控器
+
+`vokie.remote.enabled` 开着时,遥控器语音键的按下和松开被当成说话键:`press` 打开麦克风并开始这次倾听,
+越过 `holdMs`(默认 500 毫秒)算长按,交给 Coo;`holdMs` 之前松开算轻按,这次倾听取消、什么都不投递,那一下仍归 Vokie 自己的听写。
+
+按键来源是 `vokie.remote.source`:
+
+| 值 | 来源 |
+|---|---|
+| `log`(默认) | 读 Vokie 的日志 `%APPDATA%\vokie\logs\app.log` 里 `google-tv-remote-helper { type: 'button' … }` 那些行(`src/vokie/log-watch.ts`)。Vokie 自己读走了遥控器的 HID 报告,别的程序拿不到,日志是唯一能看到这些边沿的地方 |
+| `hid` | 直接读遥控器的 HID 报告(`src/vokie/remote.ts` 起 `remote-input.ps1`,注册 Raw Input 并按报告解 usage)。Windows 专用;本机实测没收到过报告,所以不是默认 |
+
+Vokie 用「开关」模式时,长按会先在 `holdMs` 处按一次 Vokie 的开关快捷键(`stopDictation`)结束它自己那次听写,
+再让 Coo 拿同一段话;快捷键从 Vokie 设置里的 `toggleConfig` 读,读不到时只写一行日志、不注入按键。
 
 `sherpa-onnx-node` 是本包的依赖,随包安装(Windows 约 24 MB,macOS 约 35 MB,Linux x64 约 33 MB),不在运行时下载;
 Windows x64、macOS arm64 / x64、Linux x64 / arm64 都有预编译包,Linux 上要 glibc 2.32 与 GCC 11 的 libstdc++ 以上(Ubuntu 22.04、Debian 12 起)。
