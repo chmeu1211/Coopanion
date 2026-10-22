@@ -185,6 +185,10 @@ Vokie 的谷歌遥控器语音键按下是**旁听**(toggle)模式:录音、转�
 
 端口沿用 `asr.vokiePort`,0 表示读 Vokie 设置里的 `externalAsrApi.port`。实现见 `src/vokie/records.ts`。
 
+`vokie.records.armMs`(默认 20000,0 = 全部接收)是**意图开关**:碰一下桌宠(`touch`,拎起除外)就把通道打开这么久,
+头顶亮 `listen` 的 `ready` 气泡;窗口里**第一段**完成的记录交给 Coo 后立即关闭(`relayUntil` 清零),
+于是旁听做会议记录时不会误发,一次点击对应一句话。窗口以外完成、或没点击就完成的记录只写一行日志、不投递。
+
 ## 附:遥控器按键通道(不用)
 
 `vokie.remote.enabled`(默认关)是早先的长按方案:读 Vokie 日志里的按键边沿(`vokie.remote.source`:

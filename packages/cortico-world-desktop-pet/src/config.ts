@@ -250,6 +250,8 @@ export interface DesktopPetConfigSection extends WorldSection {
   vokie: {
     records: {
       enabled: boolean;
+      /** How long a touch on the pet keeps the channel open, in milliseconds; 0 takes every record. */
+      armMs: number;
       /** `toggle`: the remote's 旁听; `ptt`: the 听写 Vokie pastes itself; `any`: either. */
       type: 'toggle' | 'ptt' | 'any';
       /** How often Vokie's history is read, in milliseconds. */
@@ -312,7 +314,7 @@ export const DESKTOP_PET_DEFAULTS: DesktopPetConfigSection = {
     mic: { mode: 'hold', hotkey: DEFAULT_HOTKEY, deviceId: '', openOnPress: false },
   },
   vokie: {
-    records: { enabled: true, type: 'toggle', pollMs: 900 },
+    records: { enabled: true, armMs: 20_000, type: 'toggle', pollMs: 900 },
     remote: { enabled: false, source: 'log', holdMs: 500, stopDictation: true },
   },
 };

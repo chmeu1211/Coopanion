@@ -1,8 +1,7 @@
 /**
- * The Vokie remote through the World: holding its voice key talks to Coo over the same talk-key
- * path the microphone uses, and a tap sends nothing. The remote itself is a scripted source, so
- * no log file and no hardware are involved; the recognizer is the same stand-in `voice.test.ts`
- * uses for sherpa-onnx.
+ * The Vokie bridge through the World: the remote's hold-to-talk attempt and the 旁听 channel that
+ * replaced it. Both sources are scripted here, so no log file, no hardware and no Vokie are involved;
+ * the recognizer is the same stand-in `voice.test.ts` uses for sherpa-onnx.
  */
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -95,12 +94,16 @@ async function setup(heard = '帮我看看这个') {
   const down = () => void feed?.({ ...VOICE, down: true, ts: Date.now() });
   const up = () => void feed?.({ ...VOICE, down: false, ts: Date.now() });
   const emitRecord = (text: string) => void feedRecord?.({ id: 7, type: 'toggle', text, ts: Date.now() });
-  return { world, host, page, remote, records, down, up, emitRecord };
+  /** Touching the pet is how the person says the next sentence is Coo's. */
+  const touch = () => page.send({ t: 'touch', kind: 'poke', woke: false });
+  const armed = () => page.next((m) => m.t === 'listen' && m.phase === 'ready');
+  const speeches = () => host.events.filter((e) => e.type === 'desktop-pet.speech');
+  return { world, host, page, remote, records, down, up, emitRecord, touch, armed, speeches };
 }
 
 describe('Vokie remote', () => {
   it('listens while the voice key is held and sends what it heard when it is let go', async () => {
-    const { world, host, page, remote, down, up } = await setup();
+    const { host, page, remote, down, up } = await setup();
     expect(remote.started).toBe(1);
     down();
     await page.next((m) => m.t === 'listen' && m.phase === 'start');
@@ -136,14 +139,37 @@ describe('Vokie remote', () => {
 });
 
 describe('Vokie 旁听 channel', () => {
-  it('turns one finished session from Vokie into one speech event', async () => {
-    const { host, page, records, emitRecord } = await setup();
+  it('speaks one finished session to Coo once the pet was touched', async () => {
+    const { page, records, emitRecord, touch, armed, speeches } = await setup();
     expect(records.started).toBe(1);
+    touch();
+    await armed();
     emitRecord('帮我把窗口挪到右边');
-    await expect.poll(() => host.events.length, { timeout: 5000 }).toBe(1);
-    expect(host.events[0]).toMatchObject({ type: 'desktop-pet.speech', senderKey: 'desktop-pet.voice', text: '[voice] 伙伴:帮我把窗口挪到右边' });
-    expect(host.pushOpts[0]).toEqual({ trigger: 'flush' });
+    await expect.poll(() => speeches().length, { timeout: 5000 }).toBe(1);
+    expect(speeches()[0]).toMatchObject({ type: 'desktop-pet.speech', senderKey: 'desktop-pet.voice', text: '[voice] 伙伴:帮我把窗口挪到右边' });
     expect((await page.next((m) => m.t === 'listen' && m.phase === 'heard')).text).toBe('帮我把窗口挪到右边');
+  });
+
+  it('leaves a session alone when the pet was not touched', async () => {
+    const { emitRecord, speeches } = await setup();
+    emitRecord('这是会议的旁听');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(speeches()).toHaveLength(0);
+  });
+
+  it('takes one sentence per touch', async () => {
+    const { emitRecord, touch, armed, speeches } = await setup();
+    touch();
+    await armed();
+    emitRecord('第一句');
+    await expect.poll(() => speeches().length, { timeout: 5000 }).toBe(1);
+    emitRecord('第二句');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(speeches()).toHaveLength(1);
+    touch();
+    await armed();
+    emitRecord('第三句');
+    await expect.poll(() => speeches().length, { timeout: 5000 }).toBe(2);
   });
 
   it('stops reading Vokie when the World stops', async () => {
