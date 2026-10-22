@@ -648,6 +648,15 @@ export class DesktopPetWorld implements World {
       log: host.log,
       spawnImpl: this.opts.spawnSystemRecognizer,
     });
+    // Vokie is a service on this computer, not a process here: this object only holds its address and settings
+    this.vokie = new VokieRecognizer({
+      port: () => this.cfg.asr.vokiePort,
+      language: () => this.cfg.asr.language,
+      appLanguage: () => this.appLanguage,
+      timeoutMs: () => this.cfg.asr.timeoutMs,
+      text: () => this.ui,
+      log: host.log,
+    });
     if (this.cfg.asr.enabled) void this.startVoiceBackend();
     await this.syncHotkey();
     this.syncRemote();
@@ -1335,22 +1344,9 @@ export class DesktopPetWorld implements World {
     return engine === 'whisper' ? this.whisper : this.funasr;
   }
 
-  /** Created the first time voice input uses it: Vokie is a service on this computer, not a process here. */
-  private vokieBackend(): VokieRecognizer {
-    this.vokie ??= new VokieRecognizer({
-      port: () => this.cfg.asr.vokiePort,
-      language: () => this.cfg.asr.language,
-      appLanguage: () => this.appLanguage,
-      timeoutMs: () => this.cfg.asr.timeoutMs,
-      text: () => this.ui,
-      log: this.log!,
-    });
-    return this.vokie;
-  }
-
   private recognizer(engine = this.engine()): SherpaAsr | SystemRecognizer | VokieRecognizer | null {
     if (engine === 'system') return this.system;
-    return engine === 'vokie' ? this.vokieBackend() : this.sherpa(engine);
+    return engine === 'vokie' ? this.vokie : this.sherpa(engine);
   }
 
   /** The recognition language: the set one, else the app language's ISO 639-1 code; FunASR and Whisper read a code they do not take as `auto`. */
