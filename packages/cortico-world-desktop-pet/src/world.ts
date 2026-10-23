@@ -397,7 +397,8 @@ export class DesktopPetWorld implements World {
   /** Vokie's finished 旁听 sessions, as the pet's second way in (src/vokie/records.ts). */
   private records: RemoteSource | null = null;
   private recordsKey = '';
-  /** Until when a touch on the pet makes the next 旁听 session Coo's; 0 when none was asked for. */
+  /** Until when a touch on the pet makes the next Vokie session Coo's; 0 when none was asked for. */
+  private relayFrom = 0;
   private relayUntil = 0;
   /** Vokie's own dictation shortcut, read from its settings the first time a hold needs it. */
   private toggleShortcut: Shortcut | null = null;
@@ -1481,11 +1482,12 @@ export class DesktopPetWorld implements World {
       this.log?.info(`Vokie 记录 ${record.id} 是 ${record.type},这一句只要 ${records.type}`);
       return;
     }
-    if (records.armMs > 0 && Date.now() > this.relayUntil) {
+    if (records.armMs > 0 && (record.ts < this.relayFrom || record.ts > this.relayUntil)) {
       this.log?.info(`Vokie 记录 ${record.id} 没点过桌宠,当成 Vokie 自己的记录`);
       return;
     }
     // one touch, one sentence: a conversation needs a touch per sentence
+    this.relayFrom = 0;
     this.relayUntil = 0;
     this.counts.delivered++;
     this.server.sendPet({ t: 'listen', phase: 'heard', text: record.text });
@@ -1500,7 +1502,8 @@ export class DesktopPetWorld implements World {
   private armRelay(): void {
     const records = this.cfg.vokie.records;
     if (!records.enabled || records.armMs <= 0) return;
-    this.relayUntil = Date.now() + records.armMs;
+    this.relayFrom = Date.now();
+    this.relayUntil = this.relayFrom + records.armMs;
     this.server.sendPet({ t: 'listen', phase: 'ready' });
   }
 
