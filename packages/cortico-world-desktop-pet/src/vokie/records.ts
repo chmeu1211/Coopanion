@@ -90,7 +90,11 @@ export class VokieRecordsWatch {
   private phase: RecordsPhase = 'stopped';
   private timer: NodeJS.Timeout | null = null;
   private abort: AbortController | null = null;
-  private lastId: number | null = null;
+  /** Ids already dealt with, whether they were delivered, were noise, or were there before this started. */
+  private readonly settled = new Set<number>();
+  /** True until the first good read, which only records what was already there. */
+  private baseline = true;
+  private lastNoted = '';
   private reading = false;
   private detail: string | null = null;
   private readonly fetchImpl: typeof fetch;
@@ -116,7 +120,8 @@ export class VokieRecordsWatch {
     if (this.timer) return;
     this.phase = 'waiting';
     this.detail = null;
-    this.lastId = null;
+    this.settled.clear();
+    this.baseline = true;
     void this.poll();
     this.timer = setInterval(() => void this.poll(), this.opts.pollMs);
     this.timer.unref?.();
@@ -130,6 +135,17 @@ export class VokieRecordsWatch {
     this.phase = 'stopped';
   }
 
+  /** Writes a line the first time the history becomes readable or unreadable, not on every poll. */
+  private note(phase: RecordsPhase, detail: string | null): void {
+    this.phase = phase;
+    this.detail = detail;
+    const key = `${phase}:${detail ?? ''}`;
+    if (key === this.lastNoted) return;
+    this.lastNoted = key;
+    if (phase === 'running') this.opts.log?.info(`Vokie 历史可以读了:${this.url()}`);
+    else this.opts.log?.warn(`Vokie 历史读不到(${detail ?? '?'}):${this.url()}`);
+  }
+
   private async poll(): Promise<void> {
     if (this.reading) return;
     this.reading = true;
@@ -138,30 +154,37 @@ export class VokieRecordsWatch {
     try {
       const reply = await this.fetchImpl(`${this.url()}/v1/data/records?limit=${PAGE}&full=true`, { signal: this.abort.signal });
       if (!reply.ok) {
-        this.phase = 'waiting';
-        this.detail = `http ${reply.status}`;
+        this.note('waiting', `http ${reply.status}`);
         return;
       }
       const body = (await reply.json()) as { records?: unknown };
       const records = Array.isArray(body.records) ? body.records : [];
-      this.phase = 'running';
-      this.detail = null;
+      this.note('running', null);
       const parsed = records.map(parseRecord).filter((r): r is ParsedRecord => r !== null).sort((a, b) => a.id - b.id);
-      if (this.lastId === null) {
+      if (this.baseline) {
         // the history that was already there belongs to whatever the person did before the pet listened
-        this.lastId = parsed.at(-1)?.id ?? 0;
+        this.baseline = false;
+        for (const record of parsed) this.settled.add(record.id);
         return;
       }
       for (const record of parsed) {
-        if (record.id <= this.lastId) continue;
-        this.lastId = record.id;
+        if (this.settled.has(record.id)) continue;
+        // a session is written while it is still running: leave it unsettled until it completes
         if (record.status !== 'completed') continue;
-        if (isNoise(record.text)) continue;
+        this.settled.add(record.id);
+        if (isNoise(record.text)) {
+          this.opts.log?.info(`Vokie 记录 ${record.id} 没有文字,跳过`);
+          continue;
+        }
         this.opts.onRecord({ id: record.id, type: record.type, text: record.text, ts: record.ts });
       }
+      // the history page is short; remembering more than it can hold buys nothing
+      if (this.settled.size > 200) {
+        const keepFrom = Math.max(...this.settled) - 100;
+        for (const id of this.settled) if (id < keepFrom) this.settled.delete(id);
+      }
     } catch (err) {
-      this.phase = 'waiting';
-      this.detail = (err as Error).name === 'AbortError' ? 'timeout' : 'unreachable';
+      this.note('waiting', (err as Error).name === 'AbortError' ? 'timeout' : 'unreachable');
     } finally {
       clearTimeout(timer);
       this.abort = null;

@@ -96,6 +96,27 @@ describe('VokieRecordsWatch', () => {
     }
   });
 
+  it('delivers a session that was first seen while it was still running', async () => {
+    const vokie = await fakeVokie();
+    vokie.set([]);
+    const got: VokieRecord[] = [];
+    const watch = new VokieRecordsWatch({ port: () => vokie.port, pollMs: 40, onRecord: (r) => got.push(r) });
+    watch.start();
+    try {
+      await expect.poll(() => watch.state().phase, { timeout: 2000 }).toBe('running');
+      await sleep(80);
+      // Vokie writes the row when the session starts and fills it in when it ends
+      vokie.set([record(30, 'ptt', '', 'processing')]);
+      await sleep(120);
+      expect(got).toHaveLength(0);
+      vokie.set([record(30, 'ptt', '00:00:01\nUNKNOWN: 这句是后填上的', 'completed')]);
+      await expect.poll(() => got.length, { timeout: 2000 }).toBe(1);
+      expect(got[0]).toMatchObject({ id: 30, type: 'ptt', text: '这句是后填上的' });
+    } finally {
+      watch.stop();
+    }
+  });
+
   it('keeps polling when the history cannot be read, and works again when it can', async () => {
     let broken = true;
     let records: unknown[] = [];
