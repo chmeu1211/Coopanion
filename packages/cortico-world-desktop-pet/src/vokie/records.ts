@@ -39,8 +39,6 @@ export interface VokieRecordsState {
 export interface VokieRecordsOptions {
   /** `asr.vokiePort`: 0 reads the port from Vokie's settings. */
   port: () => number;
-  /** The record type that belongs to the pet: `toggle` (旁听), `ptt` (听写) or `any`. */
-  type: () => string;
   /** How often Vokie's history is read. */
   pollMs: number;
   onRecord: (record: VokieRecord) => void;
@@ -154,12 +152,10 @@ export class VokieRecordsWatch {
         this.lastId = parsed.at(-1)?.id ?? 0;
         return;
       }
-      const wanted = this.opts.type();
       for (const record of parsed) {
         if (record.id <= this.lastId) continue;
         this.lastId = record.id;
         if (record.status !== 'completed') continue;
-        if (wanted !== 'any' && record.type !== wanted) continue;
         if (isNoise(record.text)) continue;
         this.opts.onRecord({ id: record.id, type: record.type, text: record.text, ts: record.ts });
       }

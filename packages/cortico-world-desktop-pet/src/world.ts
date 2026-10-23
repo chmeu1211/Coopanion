@@ -1466,7 +1466,6 @@ export class DesktopPetWorld implements World {
       ? this.opts.openRecords(onRecord)
       : new VokieRecordsWatch({
         port: () => this.cfg.asr.vokiePort,
-        type: () => records.type,
         pollMs: records.pollMs,
         onRecord,
         log: this.log ?? undefined,
@@ -1478,8 +1477,12 @@ export class DesktopPetWorld implements World {
   /** One finished Vokie session becomes one speech event, the same shape the microphone produces. */
   private onVokieRecord(record: VokieRecord): void {
     const records = this.cfg.vokie.records;
+    if (records.type !== 'any' && record.type !== records.type) {
+      this.log?.info(`Vokie 记录 ${record.id} 是 ${record.type},这一句只要 ${records.type}`);
+      return;
+    }
     if (records.armMs > 0 && Date.now() > this.relayUntil) {
-      this.log?.info(`Vokie 记录 ${record.id} 没点过桌宠,当成 Vokie 自己的旁听`);
+      this.log?.info(`Vokie 记录 ${record.id} 没点过桌宠,当成 Vokie 自己的记录`);
       return;
     }
     // one touch, one sentence: a conversation needs a touch per sentence

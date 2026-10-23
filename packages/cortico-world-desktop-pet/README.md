@@ -189,6 +189,10 @@ Vokie 的谷歌遥控器语音键按下是**旁听**(toggle)模式:录音、转�
 头顶亮 `listen` 的 `ready` 气泡;窗口里**第一段**完成的记录交给 Coo 后立即关闭(`relayUntil` 清零),
 于是旁听做会议记录时不会误发,一次点击对应一句话。窗口以外完成、或没点击就完成的记录只写一行日志、不投递。
 
+`vokie.records.type`(默认 `any`)在 World 里再筛一次:设成 `toggle`(旁听)或 `ptt`(听写)时,另一类记录只写一行
+`Vokie 记录 N 是 ptt,这一句只要 toggle` 的日志,不投递。类型筛选放在 World 而不是轮询器里,是为了让被跳过的记录
+在日志里看得见。
+
 ## 附:遥控器按键通道(不用)
 
 `vokie.remote.enabled`(默认关)是早先的长按方案:读 Vokie 日志里的按键边沿(`vokie.remote.source`:

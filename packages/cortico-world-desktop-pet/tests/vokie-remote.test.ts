@@ -93,7 +93,7 @@ async function setup(heard = '帮我看看这个') {
   cleanup.push(() => page.close());
   const down = () => void feed?.({ ...VOICE, down: true, ts: Date.now() });
   const up = () => void feed?.({ ...VOICE, down: false, ts: Date.now() });
-  const emitRecord = (text: string) => void feedRecord?.({ id: 7, type: 'toggle', text, ts: Date.now() });
+  const emitRecord = (text: string, type = 'toggle') => void feedRecord?.({ id: 7, type, text, ts: Date.now() });
   /** Touching the pet is how the person says the next sentence is Coo's. */
   const touch = () => page.send({ t: 'touch', kind: 'poke', woke: false });
   const armed = () => page.next((m) => m.t === 'listen' && m.phase === 'ready');
@@ -170,6 +170,15 @@ describe('Vokie 旁听 channel', () => {
     await armed();
     emitRecord('第三句');
     await expect.poll(() => speeches().length, { timeout: 5000 }).toBe(2);
+  });
+
+  it('takes a 听写 session as well: ptt and toggle both count by default', async () => {
+    const { emitRecord, touch, armed, speeches } = await setup();
+    touch();
+    await armed();
+    emitRecord('这是听写的一句话', 'ptt');
+    await expect.poll(() => speeches().length, { timeout: 5000 }).toBe(1);
+    expect(speeches()[0]).toMatchObject({ text: '[voice] 伙伴:这是听写的一句话' });
   });
 
   it('stops reading Vokie when the World stops', async () => {

@@ -314,7 +314,7 @@ export const DESKTOP_PET_DEFAULTS: DesktopPetConfigSection = {
     mic: { mode: 'hold', hotkey: DEFAULT_HOTKEY, deviceId: '', openOnPress: false },
   },
   vokie: {
-    records: { enabled: true, armMs: 20_000, type: 'toggle', pollMs: 900 },
+    records: { enabled: true, armMs: 20_000, type: 'any', pollMs: 900 },
     remote: { enabled: false, source: 'log', holdMs: 500, stopDictation: true },
   },
 };

@@ -195,8 +195,8 @@ Speech is recognized on your machine and audio is never uploaded: by **FunASR** 
 
 The Google TV remote's voice key starts a **旁听 (toggle) session** in Vokie: it records, transcribes, keeps the session in its history, and pastes nothing. Coopanion reads that history. Press the voice key, speak, press it again to finish; the transcript becomes one sentence for Coo, with no microphone taken from Vokie and no key pressed into it.
 
-- The switch is `worlds.desktop-pet.vokie.records.enabled`, on by default; `type` is `toggle` (旁听) by default and can be `ptt` (听写) or `any`.
-- **Touch Coo first**: a poke makes the pet show it is listening, and the next 旁听 session within 20 seconds becomes one sentence for Coo; after that it stops recognizing you again, so a 旁听 recording made for a meeting never lands in the conversation. `vokie.records.armMs` sets that window in milliseconds; 0 takes every session without a touch.
+- The switch is `worlds.desktop-pet.vokie.records.enabled`, on by default; `type` is `any` by default (旁听 and 听写 both count) and can be narrowed to one.
+- **Touch Coo first**: a poke makes the pet show it is listening, and the next finished session within 20 seconds becomes one sentence for Coo; after that it stops recognizing you again, so a 旁听 recording made for a meeting never lands in the conversation. `vokie.records.armMs` sets that window in milliseconds; 0 takes every session without a touch.
 - Normal dictation is unchanged: a held dictation from the remote or the keyboard is still transcribed and pasted by Vokie itself, and Coopanion does not read `ptt` records.
 - Which microphone a 旁听 session records from is Vokie's own setting. When its transcript comes back empty or as a bare "嗯", turn off **Use the remote's microphone** in Vokie so it records from the computer's microphone.
 - A 旁听 transcript carries segment lines such as `00:00:01` and `SPEAKER_00:`; Coopanion drops those before handing the words to Coo, and drops a session that only heard a filler.
